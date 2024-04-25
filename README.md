@@ -15,6 +15,7 @@ Apresentação semana1: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103
 
 Video bacano da AMCL package para localizar turtlebot com RVIZ e Gazebo: https://www.youtube.com/watch?v=6BN6ZJ9CKhQ&list=PLlqdnFs9xNwql5KET7v7zyl393y10qxtw&index=3
 (NOTA: video amcl tambem inclui nativation, control e path planning)
+
 Video bacano de GMAPPING package (contexto de SLAM) para o turtlebot com RVIZ e Gazebo: https://www.youtube.com/watch?v=ueSmN_VxNPg&list=PLlqdnFs9xNwql5KET7v7zyl393y10qxtw&index=4
 
 
