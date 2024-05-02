@@ -21,4 +21,4 @@ Video bacano de GMAPPING package (contexto de SLAM) para o turtlebot com RVIZ e 
 
 Outro video bacana: https://www.youtube.com/watch?v=MFqn9i68bfM
 
-
+Link RVIZ:https://emanual.robotis.com/docs/en/platform/turtlebot3/simulation/
