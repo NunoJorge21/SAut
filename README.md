@@ -19,4 +19,6 @@ Video bacano da AMCL package para localizar turtlebot com RVIZ e Gazebo: https:/
 
 Video bacano de GMAPPING package (contexto de SLAM) para o turtlebot com RVIZ e Gazebo: https://www.youtube.com/watch?v=ueSmN_VxNPg&list=PLlqdnFs9xNwql5KET7v7zyl393y10qxtw&index=4
 
+Outro video bacana: https://www.youtube.com/watch?v=MFqn9i68bfM
+
 
