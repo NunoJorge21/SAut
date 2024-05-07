@@ -18,6 +18,8 @@ gmapping: https://www.youtube.com/watch?v=MFqn9i68bfM
 
 Apresentação semana1: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103645_tecnico_ulisboa_pt/Ec1r575TbN5LlkNb5o3Y6zEBZmZGJjw7lFr6uCyibAIg2g?e=6tm2o1
 
+Apresentação semana2: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103645_tecnico_ulisboa_pt/Ec22ghu7rOlKmRwUwI-gCwUBmapggASothj4Xl-mj4LMsA?e=emDFmy
+
 Video bacano da AMCL package para localizar turtlebot com RVIZ e Gazebo: https://www.youtube.com/watch?v=6BN6ZJ9CKhQ&list=PLlqdnFs9xNwql5KET7v7zyl393y10qxtw&index=3
 (NOTA: video amcl tambem inclui nativation, control e path planning)
 
