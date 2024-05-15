@@ -7,18 +7,66 @@ from ROBOT import Graphics, Robot, Lidar#, Ultrasonic
 
 MAP_DIMENSIONS = (600, 1200)
 
+
 '''
-Updates map window
+Draw map in map_window
 Arguments:
-    map - map window (of class Canvas)
-    pixel_position - pixel to change ((x,y) coordinates)
-    color - new color of the pixel (string)
+    current_l_i - current representation of map with log odds (matrix)
+    map - window where the map is being drawn (object of class Canvas)
 '''
-def update_map(map, pixel_position, color):
-    map.create_rectangle(pixel_position[0], pixel_position[1], pixel_position[0] + 1, pixel_position[1] + 1, fill=color, outline="")
+def draw_map(current_l_i, map):
+    n_rows = len(current_l_i)
+    n_cols = len(current_l_i[0])
+
+    for row in range(n_rows):
+        for col in range(n_cols):
+            if current_l_i[row][col] > 0:
+                # occupied cell
+                map.create_rectangle(row, col, row + 1, col + 1, fill="black", outline="")
+            elif current_l_i[row][col] < 0:
+                # free cell
+                map.create_rectangle(row, col, row + 1, col + 1, fill="white", outline="")
+
+
+'''
+Inverse Sensor Model
+Arguments:
+    map - map matrix
+    current_state - current location of the robot (not pose; we may need to change this if sensor's angle range smaller than 2*pi)
+    current_observations - location of obstacles in our current perceptual field
+    sensor_range - range of the sensor in pixels (allows to check if a particular cell is in our current perceptual field)
+'''
+def inverse_sensor_model(map, current_state, current_observations):
+    return 0
+
+
+
+'''
+Occupancy Grid Mapping Algorithm
+Arguments:
+    preavious_l_i - preavious representation of map with log odds
+    current_state - current location of the robot (not pose; we may need to change this to consider angle range smaller than 2*pi)
+    current_observations - location of obstacles in our current perceptual field
+    map - map matrix
+    sensor_range - ditance (in pixels) and angular (in radians) range of the sensor
+'''
+def occupancy_grid_mapping(preavious_l_i, current_state, current_observations, map, sensor_range):
+    n_rows = len(map)
+    n_cols = len(map[0])
+
+    for row in range(n_rows):
+        for column in range(n_cols):
+            if math.dist((current_state[0], current_state[1]), (row, column)) <= sensor_range[0]:
+                # cell in perceptual field of observation
+                current_l_i = preavious_l_i # + inverse_sensor_model(map, current_state, current_observations)         # l0 = 0, since prior = 0.5
+            else:
+                current_l_i = preavious_l_i
+    
+    return current_l_i
 
 
 map_matrix = [[0.5 for i in range(1200)] for j in range(600)] # 600x1200 matrix of occupancy cells (0.5 -> maximum uncertainty)
+l_i = [[0.0 for i in range(1200)] for j in range(600)] # log odds representation of occupancy
 
 
 # window for occupancy grid map
@@ -85,14 +133,13 @@ while running:
 
     #point_cloud = ultra_sonic.sense_obstacles(robot.x, robot.y, robot.heading)
     point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
-    for point in point_cloud:
-        update_map(map_window, point, "black")
+
+    # update and draw map
+    l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
+    draw_map(l_i, map_window)
 
     #robot.avoid_obstacles(point_cloud, dt)
     
     gfx.draw_sensor_data(point_cloud)
-
-    # might have to specify condition to tell it's the first time 
-    #update_map()
 
     pygame.display.update()
