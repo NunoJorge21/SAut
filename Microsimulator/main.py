@@ -2,7 +2,7 @@ import math
 import pygame
 import time
 from tkinter import *
-
+import numpy as np
 from ROBOT import Graphics, Robot, Lidar#, Ultrasonic
 
  
@@ -41,14 +41,25 @@ def draw_map(current_l_i, map):
 '''
 Inverse Sensor Model
 Arguments:
-    map - map matrix
+    cell_i - position of the current cell of the map (array with 2 elements)
     current_state - current location of the robot (not pose; we may need to change this if sensor's angle range smaller than 2*pi)
     current_observations - location of obstacles in our current perceptual field
     sensor_range - range of the sensor in pixels (allows to check if a particular cell is in our current perceptual field)
 '''
-def inverse_sensor_model(map, current_state, current_observations):
-    return 0
+def inverse_sensor_model(cell_i, current_state, current_observations):
 
+    r = math.sqrt((cell_i[0] - current_state[0])**2 + (cell_i[1] - current_state[1])**2)   
+    phi=math.atan2(cell_i[1]-current_state[1],cell_i[0]-current_state[0]) - current_state[2]
+    # FALTA k
+
+    #a = 
+    #b = math.dist((current_observations[k][0], current_observations[k][1]), (current_state[0], current_state[1])) + alpha/2
+
+    #current_obs[360] = min(max range, range of obstacle)
+
+    #if r > min(max(current_observations), b) or :
+    
+    return 0.0
 
 
 '''
@@ -68,7 +79,7 @@ def occupancy_grid_mapping(previous_l_i, current_state, current_observations, ma
         for column in range(n_cols):
             if math.dist((current_state[0], current_state[1]), (row, column)) <= sensor_range[0]:
                 # cell in perceptual field of observation
-                current_l_i = previous_l_i # + inverse_sensor_model(map, current_state, current_observations)         # l0 = 0, since prior = 0.5
+                current_l_i = previous_l_i # + inverse_sensor_model([row, column], current_state, current_observations)         # l0 = 0, since prior = 0.5
             else:
                 current_l_i = previous_l_i
     
@@ -148,10 +159,10 @@ while running:
     #point_cloud = ultra_sonic.sense_obstacles(robot.x, robot.y, robot.heading)
     point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
 
-    if a==1:
-        l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
-        draw_map(l_i, map_window)
-        a=0
+    # if a==1:
+    #     l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
+    #     draw_map(l_i, map_window)
+    #     a=0
 
     #robot.avoid_obstacles(point_cloud, dt)
     
@@ -216,3 +227,5 @@ def calculate_likelihood(observation, x, y):
 #observation[1]: The y-coordinate of the observed position.
 #observation[2]: The true distance to the obstacle.
 #observation[3]: The standard deviation of the Gaussian distribution.
+
+
