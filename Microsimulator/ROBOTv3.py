@@ -52,7 +52,7 @@ class Robot:
         #self.vr = - 1.5*self.minspeed 
         #self.vl = - 1.5*self.minspeed #/2
         self.vr = - self.minspeed 
-        self.vl = - self.minspeed/2
+        self.vl = - self.minspeed
 
     def move_forward(self):
         self.vr = 1.5*self.minspeed
