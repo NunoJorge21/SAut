@@ -2,8 +2,18 @@ import math
 import pygame
 import time
 from tkinter import *
-
+import numpy as np
 from ROBOT import Graphics, Robot, Lidar#, Ultrasonic
+
+ 
+def p_normal(x, u, sigma2): 
+    return math.exp(-(x-u)**2/(2*sigma2)) / math.sqrt(2*math.pi*sigma2)
+
+def lo(p):
+    return math.log(p/(1.0-p))
+
+def plo(l):
+    return 1 - 1/(1+math.exp(l))
 
 MAP_DIMENSIONS = (600, 1200)
 
@@ -31,26 +41,37 @@ def draw_map(current_l_i, map):
 '''
 Inverse Sensor Model
 Arguments:
-    map - map matrix
+    cell_i - position of the current cell of the map (array with 2 elements)
     current_state - current location of the robot (not pose; we may need to change this if sensor's angle range smaller than 2*pi)
     current_observations - location of obstacles in our current perceptual field
     sensor_range - range of the sensor in pixels (allows to check if a particular cell is in our current perceptual field)
 '''
-def inverse_sensor_model(map, current_state, current_observations):
-    return 0
+def inverse_sensor_model(cell_i, current_state, current_observations):
 
+    r = math.sqrt((cell_i[0] - current_state[0])**2 + (cell_i[1] - current_state[1])**2)   
+    phi=math.atan2(cell_i[1]-current_state[1],cell_i[0]-current_state[0]) - current_state[2]
+    # FALTA k
+
+    #a = 
+    #b = math.dist((current_observations[k][0], current_observations[k][1]), (current_state[0], current_state[1])) + alpha/2
+
+    #current_obs[360] = min(max range, range of obstacle)
+
+    #if r > min(max(current_observations), b) or :
+    
+    return 0.0
 
 
 '''
 Occupancy Grid Mapping Algorithm
 Arguments:
-    preavious_l_i - preavious representation of map with log odds
+    previous_l_i - previous representation of map with log odds
     current_state - current location of the robot (not pose; we may need to change this to consider angle range smaller than 2*pi)
     current_observations - location of obstacles in our current perceptual field
     map - map matrix
     sensor_range - ditance (in pixels) and angular (in radians) range of the sensor
 '''
-def occupancy_grid_mapping(preavious_l_i, current_state, current_observations, map, sensor_range):
+def occupancy_grid_mapping(previous_l_i, current_state, current_observations, map, sensor_range):
     n_rows = len(map)
     n_cols = len(map[0])
 
@@ -58,9 +79,9 @@ def occupancy_grid_mapping(preavious_l_i, current_state, current_observations, m
         for column in range(n_cols):
             if math.dist((current_state[0], current_state[1]), (row, column)) <= sensor_range[0]:
                 # cell in perceptual field of observation
-                current_l_i = preavious_l_i # + inverse_sensor_model(map, current_state, current_observations)         # l0 = 0, since prior = 0.5
+                current_l_i = previous_l_i # + inverse_sensor_model([row, column], current_state, current_observations)         # l0 = 0, since prior = 0.5
             else:
-                current_l_i = preavious_l_i
+                current_l_i = previous_l_i
     
     return current_l_i
 
@@ -96,13 +117,13 @@ last_time = pygame.time.get_ticks()
 
 running = True
 
-
+a=0
 # simulation loop
 
 while running:
     window.update_idletasks()
     window.update()
-    
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -111,15 +132,19 @@ while running:
         if keys[pygame.K_w]:
             robot.move_forward()
             robot.kinematics(dt)
+            a=1
         if keys[pygame.K_s]:
             robot.move_backward()
             robot.kinematics(dt)
+            a=1
         if keys[pygame.K_a]:
             robot.move_left()
             robot.kinematics(dt)
+            a=1
         if keys[pygame.K_d]:
             robot.move_right()
             robot.kinematics(dt)
+            a=1
 
     
     dt = (pygame.time.get_ticks() - last_time)/1000
@@ -134,12 +159,73 @@ while running:
     #point_cloud = ultra_sonic.sense_obstacles(robot.x, robot.y, robot.heading)
     point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
 
-    # update and draw map
-    l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
-    draw_map(l_i, map_window)
+    # if a==1:
+    #     l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
+    #     draw_map(l_i, map_window)
+    #     a=0
 
     #robot.avoid_obstacles(point_cloud, dt)
     
     gfx.draw_sensor_data(point_cloud)
 
     pygame.display.update()
+
+'''
+    import numpy as np
+
+def inverse_sensor_model(occupancy_grid, robot_pos, observations):
+    # Calculate the endpoints of the rays
+    ray_endpoints = calculate_ray_endpoints(robot_pos, observations)
+
+    # Calculate the probabilities of occupancy for each cell along the rays
+    for i, ray in enumerate(ray_endpoints):
+        probs = []
+        for x, y in ray:
+            # Calculate the likelihood of the current observation, given that the cell is occupied
+            likelihood = calculate_likelihood(observations[i], x, y)
+
+            # Calculate the prior probability of the cell being occupied
+            prior = occupancy_grid[x][y]
+
+            # Calculate the posterior probability of the cell being occupied, given the current observation and the prior probability
+            posterior = (likelihood * prior) / (likelihood * prior + (1 - likelihood) * (1 - prior))
+
+            # Add the probability to the list
+            probs.append(posterior)
+
+        # Update the occupancy grid with the new probabilities of occupancy
+        for x, y, prob in zip(*np.array(ray).T, probs):
+            occupancy_grid[x][y] = prob
+
+    return occupancy_grid
+
+def calculate_ray_endpoints(robot_pos, observations):
+    # Calculate the endpoints of the rays
+    ray_endpoints = []
+    for observation in observations:
+        # Calculate the angle of the ray
+        angle = np.arctan2(observation[1] - robot_pos[1], observation[0] - robot_pos[0])
+
+        # Calculate the endpoints of the ray
+        endpoint = (robot_pos[0] + observation[2] * np.cos(angle), robot_pos[1] + observation[2] * np.sin(angle))
+
+        # Add the endpoints to the list
+        ray_endpoints.append
+
+        import math
+
+def calculate_likelihood(observation, x, y):
+    # Calculate the distance between the current position and the observed position
+    dist = math.sqrt((x - observation[0])**2 + (y - observation[1])**2)
+
+    # Calculate the likelihood of the observation, given the current position
+    likelihood = math.exp(-(dist - observation[2])**2 / (2 * observation[3]**2))
+
+    return likelihood
+'''
+#observation[0]: The x-coordinate of the observed position.
+#observation[1]: The y-coordinate of the observed position.
+#observation[2]: The true distance to the obstacle.
+#observation[3]: The standard deviation of the Gaussian distribution.
+
+

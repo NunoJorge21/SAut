@@ -49,10 +49,8 @@ class Robot:
                     self.move_forward()
 
     def move_backward(self):
-        #self.vr = - 1.5*self.minspeed 
-        #self.vl = - 1.5*self.minspeed #/2
-        self.vr = - self.minspeed 
-        self.vl = - self.minspeed
+        self.vr = - 1.5*self.minspeed 
+        self.vl = - 1.5*self.minspeed #/2
 
     def move_forward(self):
         self.vr = 1.5*self.minspeed
@@ -111,7 +109,7 @@ class Graphics:
 
     def draw_sensor_data(self, point_cloud):
         for point in point_cloud:
-            pygame.draw.circle(self.map, self.red, point[:-1], 3, 0) #color of obstacle detected
+            pygame.draw.circle(self.map, self.red, point, 3, 0) #color of obstacle detected
 
 class Lidar:
     def __init__(self, sensor_range, map):
@@ -120,11 +118,13 @@ class Lidar:
         self.map = map
 
     def sense_obstacles(self, x, y, heading):
-        obstacles = []
-        x1, y1 = x, y
         start_angle = heading - self.sensor_range[1]
         finish_angle = heading + self.sensor_range[1]
+        obstacles = [[-1, i + start_angle] for i in range(360)]
         n_beams = 360
+        x1, y1 = x, y
+
+        n = 0
         for angle in np.linspace(start_angle, finish_angle, n_beams, False):
             x2 = x1 + self.sensor_range[0] * math.cos(angle)
             y2 = y1 - self.sensor_range[0] * math.sin(angle)
@@ -137,11 +137,39 @@ class Lidar:
                     color = self.map.get_at((x, y))
                     self.map.set_at((x, y), (0, 208, 255)) # color of beam 
                     if (color[0], color[1], color[2]) == (0, 0, 0): # there is an obstacle
+                        obstacles[n][0] = math.dist((x1, y1), (x, y)) # robot'r position, object location
                         #obstacles.append([x, y])
-                        obstacles.append([x, y, 1])
                         break
-                    elif self.sensor_range[0] - 5 <= int(distance((x1, y1), (x, y))) and int(distance((x1, y1), (x, y))) <= self.sensor_range[0] + 5:
-                        obstacles.append([x, y, 0])
-                        break
+                    #return angle?
+            
+            n += 1
+            
+        return obstacles
 
-        return obstacles               
+"""
+class Ultrasonic:
+    def __init__(self, sensor_range, map):
+        self.sensor_range = sensor_range
+        self.map_width, self.map_height = pygame.display.get_surface().get_size()
+        self.map = map
+
+    def sense_obstacles(self, x, y, heading):
+        obstacles = []
+        x1, y1 = x, y
+        start_angle = heading - self.sensor_range[1]
+        finish_angle = heading + self.sensor_range[1]
+        for angle in np.linspace(start_angle, finish_angle, 40, False):
+            x2 = x1 + self.sensor_range[0] * math.cos(angle)
+            y2 = y1 - self.sensor_range[0] * math.sin(angle)
+            for i in range (0, 100):
+                u = i / 100
+                x = int(x2*u + x1*(1 - u))
+                y = int(y2*u + y1*(1 - u))
+                if 0 < x < self.map_width and 0 < y < self.map_height: # sample is inside the map
+                    color = self.map.get_at((x, y))
+                    self.map.set_at((x, y), (0, 208, 255))
+                    if (color[0], color[1], color[2]) == (0, 0, 0): # obstacle
+                        obstacles.append([x, y])
+                        break
+        return obstacles
+"""
