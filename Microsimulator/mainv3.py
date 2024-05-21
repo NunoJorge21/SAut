@@ -4,6 +4,7 @@ import time
 from tkinter import *
 import numpy as np
 from ROBOTv3 import Graphics, Robot, Lidar#, Ultrasonic
+import random
 
 def bresenham(begin,end):
     x0 = int(begin[0])
@@ -62,6 +63,8 @@ def draw_map(current_l_i, map):
                 # free cell
                 map.create_rectangle(row, col, row + 1, col + 1, fill="white", outline="")
 
+def add_noise(distance, stddev=1.0):
+    return distance + random.gauss(0, stddev)
 
 '''
 Inverse Sensor Model
@@ -212,6 +215,8 @@ while running:
 
     point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
     
+    noisy_point_cloud = [(add_noise(point[0]), add_noise(point[1]), point[2]) for point in point_cloud]
+    
     if n <= 25:
         #robot.kinematics(dt)
         #robot.avoid_obstacles(point_cloud, dt)
@@ -233,7 +238,7 @@ while running:
 
 
     #if a==1:
-    if n > 25:
+    if n > 10:
         l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
         draw_map(l_i, map_window)
         n = 0
@@ -241,7 +246,7 @@ while running:
 
     #robot.avoid_obstacles(point_cloud, dt)
     
-    gfx.draw_sensor_data(point_cloud)
+    gfx.draw_sensor_data(noisy_point_cloud)
     
     n = n+1
 
