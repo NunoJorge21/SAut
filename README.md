@@ -24,6 +24,8 @@ Apresentação semana2: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103
 
 Apresentação semana3: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103645_tecnico_ulisboa_pt/EX-OmtNxLS9FjtzRWtN5GqIBaj30lHVZ9THx14BCcxOeMg?e=9J9Zb6
 
+Apresentação semana4: https://ulisboa-my.sharepoint.com/:p:/g/personal/ist1103645_tecnico_ulisboa_pt/EUOpcGaXZmxJjafjSYzVm90B5V79bTDsOuVDuKkUUUb6WQ?e=IwCqKW
+
 Video bacano da AMCL package para localizar turtlebot com RVIZ e Gazebo: https://www.youtube.com/watch?v=6BN6ZJ9CKhQ&list=PLlqdnFs9xNwql5KET7v7zyl393y10qxtw&index=3
 (NOTA: video amcl tambem inclui nativation, control e path planning)
 
