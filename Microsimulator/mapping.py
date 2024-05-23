@@ -7,39 +7,22 @@ import tf.transformations
 import numpy as np
 
 def scan_callback(data: LaserScan) :
-    # Convert the ranges list to a NumPy array
-    #ranges_array = np.array(data.ranges)
-
-    # Set the print options for the array
-    #np.set_numeric_ops(threshold=np.inf, linewidth=120)
-
-    # Print the array
-    #rospy.loginfo("Received scan message with ranges array:")
-    #rospy.loginfo(ranges_array)
-
-    #return ranges_array
-
     return data.ranges
 
 def pose_callback(data: PoseWithCovarianceStamped):
-
     quaternion = [data.pose.pose.orientation.x, data.pose.pose.orientation.y,
-              data.pose.pose.orientation.z, data.pose.pose.orientation.w]
- 
+                  data.pose.pose.orientation.z, data.pose.pose.orientation.w]
     euler = tf.transformations.euler_from_quaternion(quaternion)
-
-    #rospy.loginfo("Received pose message with position: (%f, %f) and orientation yaw=%f",
-    #              data.pose.pose.position.x, data.pose.pose.position.y, euler[2])
-    
     pose = [data.pose.pose.position.x, data.pose.pose.position.y, euler[2]]
-
     return pose
 
-def listener():
+def main():
     rospy.init_node('subscriber_node', anonymous=True)
-    rospy.Subscriber("/scan", LaserScan, scan_callback)
-    rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
-    rospy.spin()
+    while not rospy.is_shutdown():
+        scan_data = rospy.wait_for_message('/scan', LaserScan)
+        pose_data = rospy.wait_for_message('/amcl_pose', PoseWithCovarianceStamped)
+        ranges = scan_callback(scan_data)
+        pose = pose_callback(pose_data)
 
 if __name__ == '__main__':
-    listener()
+    main()
