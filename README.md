@@ -29,4 +29,6 @@ Video bacano de GMAPPING package (contexto de SLAM) para o turtlebot com RVIZ e 
 
 Link RVIZ:https://emanual.robotis.com/docs/en/platform/turtlebot3/simulation/
 
+Vídeo útil sobre transformações de referencial - https://www.youtube.com/watch?v=QhGxqLDeKvA&t=144s
 
+Link útil sobre transformações de referencial - https://wiki.ros.org/tf/Tutorials

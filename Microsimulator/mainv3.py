@@ -4,6 +4,11 @@ import time
 from tkinter import *
 import numpy as np
 from ROBOTv3 import Graphics, Robot, Lidar#, Ultrasonic
+import random
+
+# Constants for log-odds update
+LOG_ODDS_FREE = -1.0
+LOG_ODDS_OCCUPIED = 1.0
 
 def bresenham(begin,end):
     x0 = int(begin[0])
@@ -62,6 +67,8 @@ def draw_map(current_l_i, map):
                 # free cell
                 map.create_rectangle(row, col, row + 1, col + 1, fill="white", outline="")
 
+def add_noise(distance, stddev=1.0):
+    return distance + random.gauss(0, stddev)
 
 '''
 Inverse Sensor Model
@@ -71,8 +78,9 @@ Arguments:
     current_observations - location of obstacles in our current perceptual field
     sensor_range - range of the sensor in pixels (allows to check if a particular cell is in our current perceptual field)
 '''
-def inverse_sensor_model(cell_i, previous_l_i, current_state, current_observations):
+#def inverse_sensor_model(cell_i, previous_l_i, current_state, current_observations, alpha=1, beta=1):
 
+    #VER DO BETA
     #r = math.sqrt((cell_i[0] - current_state[0])**2 + (cell_i[1] - current_state[1])**2)   
     #phi=math.atan2(cell_i[1]-current_state[1],cell_i[0]-current_state[0]) - current_state[2]
     # FALTA k
@@ -84,17 +92,35 @@ def inverse_sensor_model(cell_i, previous_l_i, current_state, current_observatio
 
     #if r > min(max(current_observations), b) or :
 
-    current_l_i = previous_l_i
+    #current_l_i = previous_l_i
 
-    for obstacle in current_observations:
-        line_points = bresenham(current_state, obstacle)
-        for point in line_points:
-            current_l_i[point[0]][point[1]] = -1
-        
-        current_l_i[obstacle[0]][obstacle[1]] = 1
+    #for obstacle in current_observations:
+    #    line_points = bresenham(current_state, obstacle)
+    #    for point in line_points:
+    #        current_l_i[point[0]][point[1]] = -1
+    #    
+    #    current_l_i[obstacle[0]][obstacle[1]] = 1
     
-    return current_l_i
+    #return current_l_i
 
+def inverse_sensor_model(cell_i, previous_l_i, current_state, current_observations, alpha=1, beta=1):
+    x, y = cell_i
+    x_r, y_r, theta_r = current_state
+
+    r = math.sqrt((x - x_r)**2 + (y - y_r)**2)
+    phi = math.atan2(y - y_r, x - x_r) - theta_r
+
+    if r > sensor_range[0] or abs(phi) > sensor_range[1]:
+        return previous_l_i[x][y]
+
+    for obs in current_observations:
+        r_obs = math.sqrt((obs[0] - x_r)**2 + (obs[1] - y_r)**2)
+        if r < r_obs:
+            return previous_l_i[x][y] + LOG_ODDS_FREE
+        elif r == r_obs:
+            return previous_l_i[x][y] + LOG_ODDS_OCCUPIED
+
+    return previous_l_i[x][y]
 
 '''
 Occupancy Grid Mapping Algorithm
@@ -132,6 +158,13 @@ def occupancy_grid_mapping(previous_l_i, current_state, current_observations, ma
             current_l_i[obstacle[0]][obstacle[1]] = 1
         elif obstacle[2] == 0:
             current_l_i[obstacle[0]][obstacle[1]] = -1
+    current_l_i = [row[:] for row in previous_l_i]
+
+    #for obs in current_observations:
+    #    line_points = bresenham((current_state[0], current_state[1]), (obs[0], obs[1]))
+    #    for point in line_points:
+    #        current_l_i[point[1]][point[0]] = inverse_sensor_model(point, previous_l_i, current_state, current_observations)
+    #    current_l_i[obs[1]][obs[0]] = inverse_sensor_model((obs[0], obs[1]), previous_l_i, current_state, current_observations)
     
     return current_l_i
 
@@ -212,6 +245,8 @@ while running:
 
     point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
     
+    noisy_point_cloud = [(add_noise(point[0]), add_noise(point[1]), point[2]) for point in point_cloud]
+    
     if n <= 25:
         #robot.kinematics(dt)
         #robot.avoid_obstacles(point_cloud, dt)
@@ -233,7 +268,7 @@ while running:
 
 
     #if a==1:
-    if n > 25:
+    if n > 10:
         l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y], point_cloud, map_matrix, sensor_range)
         draw_map(l_i, map_window)
         n = 0
@@ -241,7 +276,7 @@ while running:
 
     #robot.avoid_obstacles(point_cloud, dt)
     
-    gfx.draw_sensor_data(point_cloud)
+    gfx.draw_sensor_data(noisy_point_cloud)
     
     n = n+1
 

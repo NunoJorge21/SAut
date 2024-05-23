@@ -109,9 +109,16 @@ class Graphics:
         rect = rotated.get_rect(center = (x, y))
         self.map.blit(rotated, rect)
 
-    def draw_sensor_data(self, point_cloud):
+    def draw_sensor_data(self, point_cloud, pose):
+        pixel = [0, 0]
         for point in point_cloud:
-            pygame.draw.circle(self.map, self.red, point[:-1], 3, 0) #color of obstacle detected
+            x_r = pose[0]
+            y_r = pose[1]
+            d = point[0]
+            pixel[0] = x_r + d * math.cos(point[1])
+            pixel[1] = y_r - d * math.sin(point[1])
+
+            pygame.draw.circle(self.map, self.red, pixel, 3, 0) #color of obstacle detected
 
 class Lidar:
     def __init__(self, sensor_range, map):
@@ -138,10 +145,19 @@ class Lidar:
                     self.map.set_at((x, y), (0, 208, 255)) # color of beam 
                     if (color[0], color[1], color[2]) == (0, 0, 0): # there is an obstacle
                         #obstacles.append([x, y])
-                        obstacles.append([x, y, 1])
-                        break
-                    elif self.sensor_range[0] - 5 <= int(distance((x1, y1), (x, y))) and int(distance((x1, y1), (x, y))) <= self.sensor_range[0] + 5:
-                        obstacles.append([x, y, 0])
+                        d = math.sqrt((x - x1)**2 + (y - y1)**2)
+                        obstacles.append([d, angle])
                         break
 
-        return obstacles               
+        return obstacles   
+
+
+class Cell:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.value = 0.5
+        self.alpha = 0.05
+
+    def distance_to_state(self, location):
+        return math.sqrt((self.x - location[0])**2 + (self.y - location[1])**2)
