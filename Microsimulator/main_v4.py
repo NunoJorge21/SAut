@@ -1,35 +1,22 @@
-####################################################################################
-# Script to apply to use along with real data:
-#   communicates with ROS, subscribing to the required topics;
-#   uses AMCL;
-#   discretizes the space in evenly spaced square cells. 
-#
-# Uses a model along the lines of the forward sensor model 
-#   (since OccGrid iterates over the observations point cloud and not the map cells)
-####################################################################################
-
-##################### A ADAPTAR PARA ROS
-
-
 import math
-#import pygame
+import pygame
+import time
 from tkinter import *
+import numpy as np
+from ROBOTv4 import Graphics, Robot, Lidar, Cell
+import copy
+from scipy import stats
 
 
-MAP_DIMENSIONS = (1400, 1400)     # dimensions, in pixels, of the represented map
-CELL_SIZE = 0.05    # the length of every environment cell is CELL_SIZE meters
+MAP_DIMENSIONS = (600, 1200)
+LIDAR_ERROR = 0.035*3779.53 # LiDAR's precision is 3.5% of the measured distance
 
 
-'''
-Bresenham's line algorithm for every slope (not just 1)
-Arguments:
-    begin - coordinates of the beggining pixel
-    end - coordinates of the ending pixel
+def add_noise(distance, stddev=1.0):
+    #return distance + random.gauss(0, stddev) # adds zero-meaned noise
+    return distance + stats.truncnorm.rvs(-5/stddev, 5/stddev, loc=0, scale=stddev, size=1)[0] 
 
-Returns:
-    list of all pixels between begin and end , not including 
-        the endins pixel
-'''
+
 def bresenham(begin,end):
     x0 = int(begin[0])
     y0 = int(begin[1])
@@ -60,112 +47,183 @@ def bresenham(begin,end):
                 x += sx
                 err += dy
             y += sy
+    #points.append((int(x1), int(y1)))
 
-    return points # does not include ending pixel
+    return points # does not return last element
+
+
+def l_occ(stddev):
+    p = 1 - stats.truncnorm.rvs(0, 1/stddev, loc=0, scale=stddev, size=1)[0]
+    #return math.log(p/(1-p))
+    return 1
+
+def l_free(stddev):
+    p = 0 + stats.truncnorm.rvs(0, 1/stddev, loc=0, scale=stddev, size=1)[0]
+    #return math.log(p/(1-p))
+    return -1
 
 
 '''
-Converts coordinates in the psudo-pixel frame to the real pixel frame.
-In the real pixel frame, the origin of the pseudo-pixel frame corresponds to (699, 699).
-In the pseudo-pixel frame, the x-axis points to the right and the y-axis points uppwards, 
-whereas in the real pixel frame the y-axis points downwards
-
+Draw map in map_window
 Arguments:
-    pseudo_x - x coordinate in the pseudo-pixel reference frame
-    pseudo_y - y coordinate in the pseudo-pixel reference frame
-
-Returns: 
-    coordinate of the pixel
+    current_l_i - current representation of map with log odds (matrix)
+    map - map_matrix
+    map_window - window where the map is being drawn (object of class Canvas)
 '''
-def pseudo2pixel(pseudo_x, pseudo_y):
-    pixel_x = 699 + pseudo_x
-    pixel_y = 699 - pseudo_y
-
-    return [pixel_x, pixel_y]
+def draw_map(current_l_i, map, map_window):
+    for index, cell in enumerate(map):
+        if current_l_i[index] > 0:
+            map_window.create_rectangle(cell.x, cell.y, cell.x + 1, cell.y + 1, fill="black", outline="")
+        elif current_l_i[index] < 0:
+            map_window.create_rectangle(cell.x, cell.y, cell.x + 1, cell.y + 1, fill="white", outline="")
 
 
 '''
-Transforms circular coordinates (associated to an observation),
-in the robot's reference frame, to the coordinates of a pseudo pixel.
-We are considering a new pixel reference frame in which the origin corresponds to the center
-of the pixel window, x-axis is horizontal to the right, and the y-axis is vertical uppwards
-
+Inverse Sensor Model
 Arguments:
-    pose - robot's pose (returned by the AMCL)
-    observation - observation under consideration (distance and bearing to the robot)
-
-Returns:
-    pixel coordinate
+    pixel - coordinates of the pixel under consideration
+    occupied_pixels - list of pixels that are (supposedly) occupied
+    free_pixels - list of pixels that are (supposedly) free
 '''
-def circular_coordinates2pixel(pose, observation):
+def inverse_sensor_model(pixel, occupied_pixels, free_pixels):
+    if pixel in occupied_pixels:
+        return l_occ(LIDAR_ERROR)
+    
+    if pixel in free_pixels:
+        return l_free(LIDAR_ERROR)
+    
+    return 0.0
+
+
+def distance2pixel(pose, observation):
     r = observation[0]
     theta = observation[1]
-    phi = theta + pose[2] # angle in the world's reference frame
-    #phi = observation[1] - robot_heading
-    #phi = observation[1]
+    #phi = theta + pose[2]
+    phi = observation[1]
 
-    # Find point in the world's reference frame
-    x = pose[0] + r * math.cos(phi)
-    y = pose[1] + r * math.sin(phi)
+    x = int(pose[0] + r * math.cos(phi))
+    #y = int(pose[1] + r * math.sin(phi))
+    y = int(pose[1] - r * math.sin(phi))
 
-    # Convert coordinates in the world's reference frame to pixels
-    pseudo_pixel_x = int(x/CELL_SIZE)
-    pseudo_pixel_y = int(y/CELL_SIZE)
-
-    pixel = pseudo2pixel(pseudo_pixel_x, pseudo_pixel_y)
-
-    return pixel
+    return [x, y]
 
 
 '''
-Draws/Updates occupancy grid map in map_window, considering sensor data anda robot's current pose
-
+Occupancy Grid Mapping Algorithm
 Arguments:
-    point_clud - sensor data; for each element, [distance, bearing]
-    map - window where the map is being drawn (object of class Canvas)
-    pose - robot's current pose [x, y, orientation]
+    previous_l_i - previous representation of map with log odds
+    current_state - robot's current pose
+    current_observations - location of obstacles in our current perceptual field
+    map - map matrix (array of elements of clas Cell)
+    sensor_range - ditance (in pixels) and angular range (in radians)
 '''
-def draw_map(point_cloud, map, pose):
-    beginning_pixel = circular_coordinates2pixel(pose, [0, 0])
+def occupancy_grid_mapping(previous_l_i, current_state, current_observations, map, sensor_range):
+    current_l_i = copy.deepcopy(previous_l_i)
+    new_occupied_pixels = []
+    new_free_pixels = []
 
-    for observation in point_cloud:
-        ending_pixel = circular_coordinates2pixel(pose, observation)
-        line = bresenham(beginning_pixel, ending_pixel) # line does not include ending pixel
+    for observation in current_observations:
+        ending_pixel = distance2pixel(current_state, observation)
+        new_occupied_pixels.append(ending_pixel)
+        line = bresenham(current_state[:-1], ending_pixel) # line does not include ending pixel
+        new_free_pixels.append(line)
 
-        for pixel in line:
-            # paint the cells between current pose and ending cell (excluding the latter) white (they are empty)
-            map.create_rectangle(pixel[0], pixel[1], pixel[0] + 1, pixel[1] + 1, fill="white", outline="")
+    for index, cell in enumerate(map):
+        distance = cell.distance_to_state(current_state[:-1]) 
+        if distance <= sensor_range[0]:
+            # current cell is in sensor range
+            current_l_i[index] += inverse_sensor_model([cell.x, cell.y], new_occupied_pixels, new_free_pixels)
 
-        # paint the ending cell black (it is occupied)
-        map.create_rectangle(ending_pixel[0], ending_pixel[1], ending_pixel[0] + 1, ending_pixel[1] + 1, fill="black", outline="")
-
-
-
-
-########################################
-########################################
- # -------------- main -------------- #
-#--------------------------------------#
+    return current_l_i   
 
 
-# Window for occupancy grid map
+
+
+####################################
+# --------------main-------------- #
+
+# Initialize map and log-odds matrix
+map_matrix = []
+l_i = []
+
+for i in range(MAP_DIMENSIONS[0]):
+    for j in range(MAP_DIMENSIONS[1]):
+        cell = Cell(i, j)
+        map_matrix.append(cell)
+        l_i.append(0.0)
+
+
+# window for occupancy grid map
 window = Tk()
 window.title("Occupancy Grid Map")
-window.geometry(f"{MAP_DIMENSIONS[0]}x{MAP_DIMENSIONS[1]}")
+window.geometry("1200x600")
 
-map_window = Canvas(window, width=MAP_DIMENSIONS[1], height=MAP_DIMENSIONS[0], bg="#888A85")
+map_window = Canvas(window, width=1200, height=600, bg="#888A85")
 map_window.pack()
 
 
-while running: # while != EOF
+# environment graphics
+gfx = Graphics(MAP_DIMENSIONS, 'DDR.png', 'ObstacleMap.png')
+
+# robot
+start = (200, 200)
+robot = Robot(start, 0.01*3779.52)
+
+# sensor
+angular_range = 360
+sensor_range = 250, math.radians(angular_range/2) #250,rad(40)
+lidar = Lidar(sensor_range, gfx.map)
+
+dt = 0
+last_time = pygame.time.get_ticks()
+
+running = True
+
+n = 0
+
+# simulation loop
+while running:
     window.update_idletasks()
     window.update()
 
-    robot_pose = get_pose()
-    # read sensor data
-    point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
-    draw_map(point_cloud, map_window, robot_pose)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+   
+    dt = (pygame.time.get_ticks() - last_time)/1000
+    last_time = pygame.time.get_ticks()
     
-    #pygame.display.update()
+    gfx.map.blit(gfx.map_img, (0, 0))
 
-# keep sowing the map file.....
+    gfx.draw_robot(robot.x, robot.y, robot.heading)
+
+    point_cloud = lidar.sense_obstacles(robot.x, robot.y, robot.heading)
+    # Add noise to Lidar measurements
+    noisy_point_cloud = [(add_noise(point[0], LIDAR_ERROR*point[0]), point[1]) for point in point_cloud]
+    
+    if n <= 25:
+        keys = pygame.key.get_pressed() 
+        if keys[pygame.K_w]:
+            robot.move_forward()
+            robot.kinematics(dt)
+        if keys[pygame.K_s]:
+            robot.move_backward()
+            robot.kinematics(dt)
+        if keys[pygame.K_a]:
+            robot.move_left()
+            robot.kinematics(dt)
+        if keys[pygame.K_d]:
+            robot.move_right()
+            robot.kinematics(dt)
+
+
+    if n > 25:
+        l_i = occupancy_grid_mapping(l_i, [robot.x, robot.y, robot.heading], noisy_point_cloud, map_matrix, sensor_range)
+        draw_map(l_i, map_matrix, map_window)
+        n = 0
+    
+    gfx.draw_sensor_data(noisy_point_cloud, [robot.x, robot.y, robot.heading])
+    
+    n = n+1
+
+    pygame.display.update()
