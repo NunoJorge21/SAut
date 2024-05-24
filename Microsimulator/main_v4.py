@@ -12,9 +12,9 @@ MAP_DIMENSIONS = (600, 1200)
 LIDAR_ERROR = 0.035*3779.53 # LiDAR's precision is 3.5% of the measured distance
 
 
-def add_noise(distance, stddev=1.0):
+def add_noise(value, stddev=1.0):
     #return distance + random.gauss(0, stddev) # adds zero-meaned noise
-    return distance + stats.truncnorm.rvs(-5/stddev, 5/stddev, loc=0, scale=stddev, size=1)[0] 
+    return value + stats.truncnorm.rvs(-5/stddev, 5/stddev, loc=0, scale=stddev, size=1)[0] 
 
 
 def bresenham(begin,end):
@@ -206,15 +206,27 @@ while running:
         if keys[pygame.K_w]:
             robot.move_forward()
             robot.kinematics(dt)
+
+            robot.x = add_noise(robot.x)
+            robot.y = add_noise(robot.y)
         if keys[pygame.K_s]:
             robot.move_backward()
             robot.kinematics(dt)
+
+            robot.x = add_noise(robot.x)
+            robot.y = add_noise(robot.y)
         if keys[pygame.K_a]:
             robot.move_left()
             robot.kinematics(dt)
+
+            robot.x = add_noise(robot.x)
+            robot.y = add_noise(robot.y)
         if keys[pygame.K_d]:
             robot.move_right()
             robot.kinematics(dt)
+
+            robot.x = add_noise(robot.x)
+            robot.y = add_noise(robot.y)
 
 
     if n > 25:
