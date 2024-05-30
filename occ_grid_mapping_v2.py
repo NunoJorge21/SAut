@@ -39,16 +39,18 @@ MAP_DIMENSIONS = [1000, 1000]     # dimensions, in pixels, of the represented ma
 MAP_CENTER = [499, 699]     # center of the map
 CELL_SIZE = 0.05    # the length of every environment cell is CELL_SIZE meters
 LIDAR_ERROR = 0.035     # lidar's uncertainty
-SENSOR_RANGE = 3.5, math.pi     # lidar's distance and angular range (in meters and radians)
+SENSOR_RANGE = 3.5     # lidar's distance range in meters
 
 global sensor_range_pixels
 
-sensor_range_pixels = int(SENSOR_RANGE[0]/CELL_SIZE)
+sensor_range_pixels = SENSOR_RANGE/CELL_SIZE
 
 
 # Probability threshold for identifying occupied (upper) and free (lower) cells
-p_upper = 0.55 
-p_lower = 0.45
+#p_upper = 0.55 
+#p_lower = 0.45
+p_upper = 0.5 
+p_lower = 0.5
 UPPER_THRESHOLD = math.log(p_upper/(1-p_upper))
 LOWER_THRESHOLD = math.log(p_lower/(1-p_lower))
 
@@ -187,8 +189,7 @@ Returns:
 '''
 def circular_coordinates2pixel(pose, observation):
     r = observation[0]
-    theta = observation[1]
-    phi = theta + pose[2] # angle in the world's reference frame
+    phi = observation[1] + pose[2] # angle in the world's reference frame
 
     # Find point in the world's reference frame
     x = pose[0] + r * math.cos(phi)
@@ -221,19 +222,19 @@ def distance2obstacle(pose, observation):
 
 '''
 Arguments:
-    d - distance read by the sensor (in the same unit as SENSOR_RANGE[0])
+    d - distance read by the sensor (in the same unit as SENSOR_RANGE)
 '''
 def l_occ(d):
-    w = (SENSOR_RANGE[0] - 0.035*d)/SENSOR_RANGE[0]
+    w = (sensor_range_pixels - LIDAR_ERROR*d)/sensor_range_pixels
     return math.log(w*p_occ/(1-p_occ))
 
 
 '''
 Arguments:
-    d - distance read by the sensor (in the same unit as SENSOR_RANGE[0])
+    d - distance read by the sensor (in the same unit as SENSOR_RANGE)
 '''
 def l_free(d):
-    w = (SENSOR_RANGE[0] - 0.035*d)/SENSOR_RANGE[0]
+    w = (sensor_range_pixels + LIDAR_ERROR*d)/sensor_range_pixels
     return math.log(w*p_free/(1-p_free))
 
 
@@ -247,10 +248,12 @@ Arguments:
 '''
 def inverse_sensor_model(pixel, occupied_pixels, free_pixels, distance):
     if pixel in occupied_pixels:
-        return l_occ(distance)
+        #return l_occ(distance)
+        return 1.0
     
     if pixel in free_pixels:
-        return l_free(distance)
+        #return l_free(distance)
+        return -1.0
     
     return 0.0
 
@@ -293,12 +296,25 @@ def occupancy_grid_mapping(current_state, observed_distances, map):
         new_occupied_pixels.append(obstacle_pixel)
         new_free_pixels = bresenham(robot_pixel, obstacle_pixel, new_free_pixels) # line does not include ending pixel
 
+    count = 0
+    '''
     for cell in l_i:
-        distance = cell.distance_to_state(robot_pixel) 
+        distance = cell.distance_to_state(robot_pixel) # in pixels
         if distance <= sensor_range_pixels:
             # current cell is in sensor range
             cell.log_odds += inverse_sensor_model([cell.x, cell.y], new_occupied_pixels, new_free_pixels, distance)
+    '''
+    for index, cell in enumerate(l_i):
+        distance = cell.distance_to_state(robot_pixel) # in pixels
+        if distance <= sensor_range_pixels:
+            print(distance, sensor_range_pixels)
+            count += 1
+            # current cell is in sensor range
+            #print("Before:", l_i[index].log_odds)
+            l_i[index].log_odds += inverse_sensor_model([cell.x, cell.y], new_occupied_pixels, new_free_pixels, distance)
+            #print("After:", l_i[index].log_odds)
 
+    print(count)
     draw_map(map)
 
 
@@ -324,7 +340,6 @@ def main():
 
         # read sensor data
         observed_ranges = scan_callback(scan_data)
-        print(len(observed_ranges))
         # get robot's pose
         robot_pose = pose_callback(pose_data)
         
