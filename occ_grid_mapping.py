@@ -170,8 +170,11 @@ Arguments:
 def draw_map(ranges, map, pose):
     beginning_pixel = circular_coordinates2pixel(pose, [0, 0])
 
+    count = 0
     for index, distance in enumerate(ranges):
-        if distance > 0.12 and distance < 3.0:
+        #if distance > 0.12 and distance < 3.0:
+        if distance < 3.5:
+            count += 1
             ending_pixel = circular_coordinates2pixel(pose, [distance, math.radians(index)])
             line = bresenham(beginning_pixel, ending_pixel) # line does not include ending pixel
 
@@ -182,6 +185,7 @@ def draw_map(ranges, map, pose):
             # paint the ending cell black (it is occupied)
             map.create_rectangle(ending_pixel[0], ending_pixel[1], ending_pixel[0] + 1, ending_pixel[1] + 1, fill="black", outline="")
 
+    print(count)
 
 
 
@@ -206,7 +210,6 @@ def main():
 
         # read sensor data
         ranges = scan_callback(scan_data)
-        print(len(ranges))
         # get robot's pose
         robot_pose = pose_callback(pose_data)
         
