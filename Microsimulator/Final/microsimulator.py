@@ -1,7 +1,7 @@
 import math
 import pygame
 from tkinter import *
-from ROBOTv4 import Graphics, Robot, Lidar, Cell
+from ROBOT import Graphics, Robot, Lidar, Cell
 from scipy import stats
 
 
